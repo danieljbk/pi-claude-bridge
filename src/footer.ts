@@ -16,10 +16,12 @@
 // marker.
 //
 // The right side is cut down to the same register as the left. pi writes
-// `(claude-bridge) claude-fable-5-1 • high`; here it is `fable-5-1 high`: the
-// `claude-` every bridge model carries says nothing, the bullet is a space,
-// and the thinking level is a short word. The provider appears only when the
-// active model is not the bridge's, which is the one case it carries news.
+// `(claude-bridge) claude-fable-5-1 • high`; here it is `fable high`: the
+// family alone, since the picker offers one version of each and the version
+// says nothing the family does not, the bullet is a space, and the thinking
+// level is a short word. A model that is not Claude's keeps its whole id. The
+// provider appears only when the active model is not the bridge's, which is
+// the one case it carries news.
 //
 // The layout degrades with width in steps rather than clipping: the provider
 // prefix goes first, then the reset times are never shown here at all (they
@@ -33,6 +35,7 @@ import { isAbsolute, join, relative, resolve, sep } from "path";
 import type { ExtensionContext, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { footerUsageParts, type UsageState } from "./usage.js";
+import { familyAndVersion } from "./models.js";
 
 type FooterFactory = Parameters<ExtensionUIContext["setFooter"]>[0] & Function;
 type Theme = Parameters<FooterFactory>[1];
@@ -91,9 +94,9 @@ const THINKING_SHORT: Record<string, string> = {
 	max: "max",
 };
 
-/** `claude-fable-5-1` reads `fable-5-1`; any other id is left as it is. */
+/** `claude-fable-5-1` reads `fable`; an id that is not Claude's is left as it is. */
 export function shortModelId(id: string): string {
-	return id.startsWith("claude-") ? id.slice("claude-".length) : id;
+	return id.startsWith("claude-") ? familyAndVersion(id).family : id;
 }
 
 export function shortThinkingLevel(level: string | undefined): string {

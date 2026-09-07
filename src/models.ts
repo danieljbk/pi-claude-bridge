@@ -26,7 +26,7 @@ export function buildModels<T extends { id: string; [key: string]: any }>(piAiMo
 // and its version is the run of numbers after that, compared part by part, so
 // 5-1 is newer than 5, which is newer than 4-8. A dated snapshot suffix such
 // as 20251001 is one more part and sorts the same way.
-function familyAndVersion(id: string): { family: string; version: number[] } {
+export function familyAndVersion(id: string): { family: string; version: number[] } {
 	const parts = id.replace(/^claude-/, "").split("-");
 	const family = parts[0];
 	const version = parts.slice(1).map(Number).filter((n) => !Number.isNaN(n));
