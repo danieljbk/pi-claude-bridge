@@ -11,7 +11,7 @@ import { appendFileSync, mkdirSync, realpathSync, statSync } from "fs";
 import { homedir } from "os";
 import { dirname, join } from "path";
 import { PROVIDER_ID, messageContentToText, convertPiMessages } from "./convert.js";
-import { applyLongContext, buildModels, claudeCodeModelId, type LongContextSettings, resolveModel as _resolveModel } from "./models.js";
+import { applyLongContext, buildModels, claudeCodeModelId, latestVersions, type LongContextSettings, resolveModel as _resolveModel } from "./models.js";
 import { MCP_SERVER_NAME, MCP_TOOL_PREFIX, renderSkillsBlock } from "./skills.js";
 import { verifyWrittenSession as _verifyWrittenSession } from "./session-verify.js";
 import { extractAllToolResults as _extractAllToolResults, type McpResult } from "./extract-tool-results.js";
@@ -970,6 +970,11 @@ function resolveMcpTools(context: Context, excludeToolName?: string): {
 // it, and a handler that runs first parks its resolver in `pendingToolCalls`.
 // Handlers close over the captured `queryCtx`, ensuring they operate on the
 // correct query's state while multiple queries run concurrently.
+/** A custom prompt as the SDK should carry it: whole, or empty when it says nothing. */
+function customSystemPrompt(prompt: string): string {
+	return prompt.trim() ? prompt : "";
+}
+
 function buildMcpServers(tools: Tool[], queryCtx: QueryContext): Record<string, ReturnType<typeof createToolServer>> | undefined {
 	if (!tools.length) return undefined;
 	const mcpTools = tools.map((tool) => ({
@@ -1689,11 +1694,13 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
 		// replace the harness's guidance, and the preset is ten thousand
 		// characters of it. Sent as a string, so the SDK forwards it whole and
 		// Claude Code adds only its identity line. Without a custom prompt the
-		// preset stays and pi's portable parts are appended, as before. A blank
-		// custom prompt is kept blank rather than emptied, because the SDK reads
-		// an empty string as no prompt and restores the preset.
+		// preset stays and pi's portable parts are appended, as before. A
+		// custom prompt that is only whitespace is sent as the empty string,
+		// which the SDK forwards as a custom prompt with no block (probed on
+		// SDK 0.2.141 / CC 2.1.263: `""` sends the header and identity lines and
+		// nothing else, while `"\n"` sends a whitespace block the API refuses).
 		systemPrompt: promptCapture?.custom
-			? (systemPromptAppend ?? promptCapture.custom)
+			? customSystemPrompt(systemPromptAppend ?? promptCapture.custom)
 			: {
 				type: "preset", preset: "claude_code",
 				append: systemPromptAppend ? systemPromptAppend : undefined,
@@ -2036,7 +2043,10 @@ export default function (pi: ExtensionAPI) {
 		plan: providerSettings.plan ?? "pro",
 		longContextExtraUsage: providerSettings.longContextExtraUsage ?? false,
 	};
-	const registeredModels = applyLongContext(MODELS, longContextSettings);
+	// The picker offers the newest version of each family unless the config asks
+	// for every version; an older one can still be named in full.
+	const offeredModels = providerSettings.allVersions ? MODELS : latestVersions(MODELS);
+	const registeredModels = applyLongContext(offeredModels, longContextSettings);
 
 	if (!config.startupNoticeShown) {
 		if (config.provider?.plan === undefined) pendingNotices.push('Are you using a Max plan? You need to set provider.plan to "max" to unlock 1M context in Opus.');
