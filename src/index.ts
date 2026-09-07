@@ -26,7 +26,8 @@ import {
 import { collectCarriedAttachments, placeCarriedAttachments, type CarriedAttachment } from "./attachments.js";
 import { createToolServer } from "./mcp-server.js";
 import { buildActionSummary, type ToolCallState } from "./askclaude-ui.js";
-import { createUsageState, formatUsageStatus, recordRateLimitEvent } from "./usage.js";
+import { createUsageState, recordRateLimitEvent } from "./usage.js";
+import { createFooterFactory } from "./footer.js";
 
 // Compat (#2): use factory if available (pi-ai ≥0.66), else fall back to constructor (gsd-pi etc.)
 const _piAi = piAi as any;
@@ -759,6 +760,9 @@ export const __test = {
 	getUsageState() {
 		return usageState;
 	},
+	setFooterTui(tui: { requestRender(): void } | null) {
+		footerTui = tui;
+	},
 	syncSharedSession,
 	extractUserPromptBlocks,
 	consumeQuery,
@@ -831,12 +835,18 @@ let piUI: ExtensionUIContext | null = null;
 let piMode: ExtensionContext["mode"] | null = null;
 const activeQueryContexts = new Set<QueryContext>();
 
-// Subscription usage, folded in from every rate_limit_event and shown as a
-// footer status line. Module-level rather than per query: the windows are
-// account state, and the line survives /new and a provider switch and back.
+// Subscription usage, folded in from every rate_limit_event and drawn on the
+// footer's stats line by footer.ts. Module-level rather than per query: the
+// windows are account state, and survive /new and a provider switch and back.
+// piCtx is the latest extension context, which the footer reads the model,
+// thinking level and session entries from; it is refreshed on every event
+// that carries one. footerTui is the TUI the footer was mounted on, asked for
+// a redraw when a new sample arrives between renders.
 const usageState = createUsageState();
+let piCtx: ExtensionContext | null = null;
+let footerTui: { requestRender(): void } | null = null;
 function refreshUsageStatus(): void {
-	piUI?.setStatus("claude-usage", formatUsageStatus(usageState));
+	footerTui?.requestRender();
 }
 
 // Defaults that silently cost the user something (no Opus 1M on Max, no
@@ -2040,7 +2050,10 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", (event, ctx) => {
 		piUI = ctx.ui;
 		piMode = ctx.mode;
-		refreshUsageStatus();
+		piCtx = ctx;
+		if (ctx.hasUI) {
+			ctx.ui.setFooter(createFooterFactory({ ctx: () => piCtx, usage: () => usageState }, (tui) => { footerTui = tui; }));
+		}
 		if (event.reason === "new" || event.reason === "resume" || event.reason === "fork") {
 			clearSession(`session_start:${event.reason}`);
 		}
@@ -2048,7 +2061,18 @@ export default function (pi: ExtensionAPI) {
 	// `--system-prompt` replaces pi's default rather than adding to it, but Claude
 	// Code's preset carries its own tool and permission guidance that the bridge
 	// still depends on, so both flags are forwarded as an append.
-	pi.on("before_agent_start", (event) => {
+	// The footer reads the model and thinking level off piCtx, so the two
+	// events that change them refresh it and redraw.
+	pi.on("model_select", (_event, ctx) => {
+		piCtx = ctx;
+		footerTui?.requestRender();
+	});
+	pi.on("thinking_level_select", (_event, ctx) => {
+		piCtx = ctx;
+		footerTui?.requestRender();
+	});
+	pi.on("before_agent_start", (event, ctx) => {
+		piCtx = ctx;
 		const options = event.systemPromptOptions;
 		const hasRead = !options?.selectedTools || options.selectedTools.includes("read");
 		promptCaptures.record(event.systemPrompt, {

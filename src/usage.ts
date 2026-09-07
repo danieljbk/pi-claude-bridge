@@ -38,6 +38,13 @@ const FOOTER_LABELS: Record<string, string> = {
 	seven_day_opus: "Opus week",
 	seven_day_sonnet: "Sonnet week",
 };
+// The terse form for the stats line, in pi's own register (R22k, CH98.7%).
+const STATS_LABELS: Record<string, string> = {
+	five_hour: "5h",
+	seven_day: "7d",
+	seven_day_opus: "opus7d",
+	seven_day_sonnet: "sonnet7d",
+};
 const FOOTER_ORDER = ["five_hour", "seven_day", "seven_day_opus", "seven_day_sonnet"];
 
 export function createUsageState(): UsageState {
@@ -86,8 +93,16 @@ export function formatResetTime(resetsAt: number | undefined, now = Date.now()):
 	return `${day} ${time}`;
 }
 
+/** The windows seen so far as `{label, percent}` for the stats line, five-hour first. */
+export function footerUsageParts(state: UsageState): { label: string; percent: number }[] {
+	return [...state.windows.keys()]
+		.filter((k) => k in STATS_LABELS)
+		.sort((a, b) => FOOTER_ORDER.indexOf(a) - FOOTER_ORDER.indexOf(b))
+		.map((key) => ({ label: STATS_LABELS[key], percent: Math.round(state.windows.get(key)!.utilization * 100) }));
+}
+
 /**
- * One line for the footer, or undefined when no window has been seen yet:
+ * One line of prose for a notice, or undefined when no window has been seen yet:
  *   Claude 5h 2% (resets 7:00pm) · week 97% (resets Sun 3:00am)
  */
 export function formatUsageStatus(state: UsageState, now = Date.now()): string | undefined {

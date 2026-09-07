@@ -104,9 +104,9 @@ describe("formatUsageStatus", () => {
 });
 
 describe("footer wiring through consumeQuery", () => {
-	it("sets the claude-usage status when a rate_limit_event streams in", async () => {
-		const statuses = new Map();
-		__test.setPiUI({ setStatus: (k, v) => statuses.set(k, v), notify() {} });
+	it("records the windows and asks the footer to redraw when a rate_limit_event streams in", async () => {
+		let redraws = 0;
+		__test.setFooterTui({ requestRender: () => { redraws += 1; } });
 		const c = new QueryContext();
 		c.currentPiStream = { push() {}, end() {} };
 		c.resetTurnState({ api: "anthropic-messages", provider: "anthropic", id: "test-model" });
@@ -117,8 +117,8 @@ describe("footer wiring through consumeQuery", () => {
 			};
 		}
 		await __test.consumeQuery(gen(), new Map(), { api: "anthropic-messages", provider: "anthropic", id: "test-model" }, () => false, c);
-		assert.match(statuses.get("claude-usage"), /^Claude 5h 40%/);
+		assert.equal(redraws, 1);
 		assert.equal(__test.getUsageState().windows.get("five_hour").utilization, 0.4);
-		__test.setPiUI(null);
+		__test.setFooterTui(null);
 	});
 });
