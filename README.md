@@ -90,6 +90,8 @@ Config: `~/.pi/agent/claude-bridge.json` (global) or the project Pi config direc
 
 **Startup notice:** the first interactive session to reach Claude Code lists whichever of `provider.plan` and `askClaude.enabled` you have left unset, then records `startupNoticeShown` (the date, `YYYY-MM-DD`) in the global config so it doesn't nag again.
 
+**Usage in the footer:** every request Claude Code makes streams a `rate_limit_event` carrying your subscription's rolling windows, and the bridge shows them as one status line under pi's token line: `Claude 5h 2% (resets 7:00pm) · week 97% (resets Sun 3:00am)`, plus `extra usage in use` while overage credits are being spent. The line appears after the first request of the session and updates per request; nothing is fetched and no credentials are read.
+
 **Extension providers and models.json:** pi's `modelOverrides` in `~/.pi/agent/models.json` do not currently apply to extension-registered providers (like claude-bridge). Overriding `contextWindow` or other fields requires editing `src/models.ts` directly.
 
 ## Tests

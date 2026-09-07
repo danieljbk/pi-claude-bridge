@@ -25,6 +25,22 @@ warning that used to print `1% used` at 97% of the weekly window, and used to
 print it on every single request. That fix is upstream's, not a local change,
 which is why nothing here touches it.
 
+The usage line in pi's footer (`src/usage.ts`, wired in `src/index.ts`) is a
+local commit. Upstream has an open pull request for the same idea (#37) that
+reads `utilization` as a percentage where the SDK sends a fraction, and the
+maintainer's stated preference (#33) is the separate `pi-quotas` package, which
+reads pi's own Anthropic login and not Claude Code's; neither fits this setup,
+so the line lives here.
+
+## The same checkout on another machine
+
+The `local` branch is pushed to `github.com/danieljbk/pi-claude-bridge`, a fork
+of upstream, as remote `fork`. `~/.pi/agent/settings.json` names this path in
+its `packages`, and kwon's `config/claude/bootstrap.sh` clones the fork's
+`local` branch to this path when it is absent and runs `npm install --omit=dev`
+in it, so a new machine loads the same bridge. After a local commit here, push
+it: `git push fork local`.
+
 ## Re-syncing with upstream
 
 ```bash

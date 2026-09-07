@@ -26,6 +26,7 @@ import {
 import { collectCarriedAttachments, placeCarriedAttachments, type CarriedAttachment } from "./attachments.js";
 import { createToolServer } from "./mcp-server.js";
 import { buildActionSummary, type ToolCallState } from "./askclaude-ui.js";
+import { createUsageState, formatUsageStatus, recordRateLimitEvent } from "./usage.js";
 
 // Compat (#2): use factory if available (pi-ai ≥0.66), else fall back to constructor (gsd-pi etc.)
 const _piAi = piAi as any;
@@ -755,6 +756,9 @@ export const __test = {
 	setPiUI(ui: ExtensionUIContext | null) {
 		piUI = ui;
 	},
+	getUsageState() {
+		return usageState;
+	},
 	syncSharedSession,
 	extractUserPromptBlocks,
 	consumeQuery,
@@ -826,6 +830,14 @@ function mapToolArgs(
 let piUI: ExtensionUIContext | null = null;
 let piMode: ExtensionContext["mode"] | null = null;
 const activeQueryContexts = new Set<QueryContext>();
+
+// Subscription usage, folded in from every rate_limit_event and shown as a
+// footer status line. Module-level rather than per query: the windows are
+// account state, and the line survives /new and a provider switch and back.
+const usageState = createUsageState();
+function refreshUsageStatus(): void {
+	piUI?.setStatus("claude-usage", formatUsageStatus(usageState));
+}
 
 // Defaults that silently cost the user something (no Opus 1M on Max, no
 // AskClaude tool) are announced once. Deferred to the first bridge query rather
@@ -1306,6 +1318,7 @@ async function consumeQuery(
 		if (message.type === "rate_limit_event") {
 			const info = (message as any).rate_limit_info;
 			debug("consumeQuery: rate_limit_event", JSON.stringify(info).slice(0, 300));
+			if (recordRateLimitEvent(usageState, info)) refreshUsageStatus();
 			if (info?.status === "rejected") {
 				// Held so the failure Claude Code sends next can be named as a rate limit.
 				queryCtx.rateLimitRejection = info;
@@ -2027,6 +2040,7 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", (event, ctx) => {
 		piUI = ctx.ui;
 		piMode = ctx.mode;
+		refreshUsageStatus();
 		if (event.reason === "new" || event.reason === "resume" || event.reason === "fork") {
 			clearSession(`session_start:${event.reason}`);
 		}
