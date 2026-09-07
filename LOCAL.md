@@ -27,8 +27,12 @@ which is why nothing here touches it.
 
 The usage on pi's footer line (`src/usage.ts` for the state, `src/footer.ts`
 for the footer, a copy of pi 0.85.1's with one more segment, wired in
-`src/index.ts`) is a local commit; when pi changes its footer, `footer.ts` is
-where the copy is brought up to date. Upstream has an open pull request for the same idea (#37) that
+`src/index.ts`) is a set of local commits; when pi changes its footer,
+`footer.ts` is where the copy is brought up to date. The segment is `5h61% 7d9%`
+after the context percentage, coloured like it, and the right side is cut to
+the same register, `fable high`, the family and the thinking level, with the
+provider in front only when the active model is not the bridge's. Upstream has
+an open pull request for the same idea (#37) that
 reads `utilization` as a percentage where the SDK sends a fraction, and the
 maintainer's stated preference (#33) is the separate `pi-quotas` package, which
 reads pi's own Anthropic login and not Claude Code's; neither fits this setup,
