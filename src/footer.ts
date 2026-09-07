@@ -15,6 +15,12 @@
 // never applies to the bridge's zero-cost models, and the experimental "xp"
 // marker.
 //
+// The right side is cut down to the same register as the left. pi writes
+// `(claude-bridge) claude-fable-5-1 • high`; here it is `fable-5-1 high`: the
+// `claude-` every bridge model carries says nothing, the bullet is a space,
+// and the thinking level is a short word. The provider appears only when the
+// active model is not the bridge's, which is the one case it carries news.
+//
 // The layout degrades with width in steps rather than clipping: the provider
 // prefix goes first, then the reset times are never shown here at all (they
 // stay in the rate-limit notices), then the model name is cut from the right,
@@ -74,6 +80,26 @@ export type FooterSources = {
 	ctx: () => ExtensionContext | null;
 	usage: () => UsageState;
 };
+
+const THINKING_SHORT: Record<string, string> = {
+	off: "off",
+	minimal: "min",
+	low: "low",
+	medium: "med",
+	high: "high",
+	xhigh: "xhigh",
+	max: "max",
+};
+
+/** `claude-fable-5-1` reads `fable-5-1`; any other id is left as it is. */
+export function shortModelId(id: string): string {
+	return id.startsWith("claude-") ? id.slice("claude-".length) : id;
+}
+
+export function shortThinkingLevel(level: string | undefined): string {
+	const l = level || "off";
+	return THINKING_SHORT[l] ?? l;
+}
 
 /** Colour a percentage the way pi colours the context percentage. */
 function colourPercent(theme: Theme, pct: number, text: string): string {
@@ -151,14 +177,10 @@ export function renderFooter(width: number, theme: Theme, footerData: FooterData
 	}
 
 	const minPadding = 2;
-	const modelName = ctx.model?.id || "no-model";
-	let rightBare = modelName;
-	if (ctx.model?.reasoning) {
-		const level = ctx.thinkingLevel || "off";
-		rightBare = level === "off" ? `${modelName} • thinking off` : `${modelName} • ${level}`;
-	}
+	const modelName = ctx.model ? shortModelId(ctx.model.id) : "no-model";
+	const rightBare = ctx.model?.reasoning ? `${modelName} ${shortThinkingLevel(ctx.thinkingLevel)}` : modelName;
 	let rightSide = rightBare;
-	if (footerData.getAvailableProviderCount() > 1 && ctx.model) {
+	if (ctx.model && ctx.model.provider !== "claude-bridge" && footerData.getAvailableProviderCount() > 1) {
 		rightSide = `(${ctx.model.provider}) ${rightBare}`;
 		if (statsLeftWidth + minPadding + visibleWidth(rightSide) > width) rightSide = rightBare;
 	}

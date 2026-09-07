@@ -1684,10 +1684,20 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
 			claudeMdExcludes: CLAUDE_MD_EXCLUDES,
 			includeGitInstructions: false,
 		},
-		systemPrompt: {
-			type: "preset", preset: "claude_code",
-			append: systemPromptAppend ? systemPromptAppend : undefined,
-		},
+		// A custom pi prompt (`--system-prompt`) replaces Claude Code's preset
+		// instead of riding after it: whoever replaced pi's own prompt meant to
+		// replace the harness's guidance, and the preset is ten thousand
+		// characters of it. Sent as a string, so the SDK forwards it whole and
+		// Claude Code adds only its identity line. Without a custom prompt the
+		// preset stays and pi's portable parts are appended, as before. A blank
+		// custom prompt is kept blank rather than emptied, because the SDK reads
+		// an empty string as no prompt and restores the preset.
+		systemPrompt: promptCapture?.custom
+			? (systemPromptAppend ?? promptCapture.custom)
+			: {
+				type: "preset", preset: "claude_code",
+				append: systemPromptAppend ? systemPromptAppend : undefined,
+			},
 		extraArgs,
 		...(effort ? { effort } : {}),
 		...(mcpServers ? { mcpServers } : {}),
@@ -2058,9 +2068,10 @@ export default function (pi: ExtensionAPI) {
 			clearSession(`session_start:${event.reason}`);
 		}
 	});
-	// `--system-prompt` replaces pi's default rather than adding to it, but Claude
-	// Code's preset carries its own tool and permission guidance that the bridge
-	// still depends on, so both flags are forwarded as an append.
+	// `--system-prompt` replaces pi's default rather than adding to it, and the
+	// provider path honours that: a custom prompt is sent as the whole system
+	// prompt in place of Claude Code's preset, while `--append-system-prompt`
+	// and the default prompt's portable parts ride after the preset.
 	// The footer reads the model and thinking level off piCtx, so the two
 	// events that change them refresh it and redraw.
 	pi.on("model_select", (_event, ctx) => {
