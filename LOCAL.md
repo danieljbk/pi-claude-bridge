@@ -34,6 +34,10 @@ maintainer's stated preference (#33) is the separate `pi-quotas` package, which
 reads pi's own Anthropic login and not Claude Code's; neither fits this setup,
 so the line lives here.
 
+The picker offering only the newest version of each family (`latestVersions`
+in `src/models.ts`, `provider.allVersions` to turn it off) is a local commit
+too, on Daniel's word that only the latest models get used.
+
 ## The same checkout on another machine
 
 The `local` branch is pushed to `github.com/danieljbk/pi-claude-bridge`, a fork

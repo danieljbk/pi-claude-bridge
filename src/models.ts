@@ -22,6 +22,46 @@ export function buildModels<T extends { id: string; [key: string]: any }>(piAiMo
 		}));
 }
 
+// The family of an id is the word after `claude-` (fable, opus, sonnet, haiku)
+// and its version is the run of numbers after that, compared part by part, so
+// 5-1 is newer than 5, which is newer than 4-8. A dated snapshot suffix such
+// as 20251001 is one more part and sorts the same way.
+function familyAndVersion(id: string): { family: string; version: number[] } {
+	const parts = id.replace(/^claude-/, "").split("-");
+	const family = parts[0];
+	const version = parts.slice(1).map(Number).filter((n) => !Number.isNaN(n));
+	return { family, version };
+}
+
+function newer(a: number[], b: number[]): boolean {
+	for (let i = 0; i < Math.max(a.length, b.length); i++) {
+		const x = a[i] ?? 0;
+		const y = b[i] ?? 0;
+		if (x !== y) return x > y;
+	}
+	return false;
+}
+
+/**
+ * Keep only the newest version of each model family, in the given order. This
+ * is what the picker offers by default: fable-5-1, opus-5, sonnet-5, haiku-4-5
+ * today, and whatever is newest once a later entry lands in MODEL_IDS_IN_ORDER,
+ * with nothing to edit. `provider.allVersions: true` in the config turns it off.
+ */
+export function latestVersions<T extends { id: string }>(models: T[]): T[] {
+	const best = new Map<string, number[]>();
+	for (const m of models) {
+		const { family, version } = familyAndVersion(m.id);
+		const seen = best.get(family);
+		if (!seen || newer(version, seen)) best.set(family, version);
+	}
+	return models.filter((m) => {
+		const { family, version } = familyAndVersion(m.id);
+		const top = best.get(family)!;
+		return !newer(top, version);
+	});
+}
+
 export type LongContextSettings = {
 	plan: "pro" | "max";
 	longContextExtraUsage: boolean;

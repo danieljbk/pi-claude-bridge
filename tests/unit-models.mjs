@@ -5,7 +5,7 @@
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { MODEL_IDS_IN_ORDER, applyLongContext, buildModels, claudeCodeModelId, resolveClaudeCodeRuntimeModel, resolveModel } from "../src/models.js";
+import { MODEL_IDS_IN_ORDER, applyLongContext, buildModels, claudeCodeModelId, latestVersions, resolveClaudeCodeRuntimeModel, resolveModel } from "../src/models.js";
 
 const PRO = { plan: "pro", longContextExtraUsage: false };
 const MAX = { plan: "max", longContextExtraUsage: false };
@@ -182,5 +182,27 @@ describe("resolveModel", () => {
 		const model = resolveModel(oneMModels, "opus");
 		assert.equal(model.id, "claude-opus-5");
 		assert.equal(claudeCodeModelId(model, PRO), "claude-opus-5[1m]");
+	});
+});
+
+describe("latestVersions", () => {
+	const models = buildModels(MODEL_IDS_IN_ORDER.map(mockPiAiModel));
+
+	it("keeps the newest of each family, in order", () => {
+		assert.deepEqual(latestVersions(models).map((m) => m.id), ["claude-fable-5-1", "claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"]);
+	});
+
+	it("reads 5-1 as newer than 5 and 5 as newer than 4-8", () => {
+		const ids = ["claude-opus-4-8", "claude-opus-5", "claude-opus-5-1", "claude-opus-4-7"];
+		assert.deepEqual(latestVersions(ids.map(mockPiAiModel)).map((m) => m.id), ["claude-opus-5-1"]);
+	});
+
+	it("keeps a family with one entry and an id it cannot version", () => {
+		const ids = ["claude-haiku-4-5", "claude-haiku-4-5-20251001", "something-else"];
+		assert.deepEqual(latestVersions(ids.map(mockPiAiModel)).map((m) => m.id), ["claude-haiku-4-5-20251001", "something-else"]);
+	});
+
+	it("leaves the opus shortcut on the newest opus", () => {
+		assert.equal(resolveModel(latestVersions(models), "opus").id, "claude-opus-5");
 	});
 });

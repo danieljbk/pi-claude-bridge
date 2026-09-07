@@ -2043,8 +2043,9 @@ export default function (pi: ExtensionAPI) {
 		plan: providerSettings.plan ?? "pro",
 		longContextExtraUsage: providerSettings.longContextExtraUsage ?? false,
 	};
-	// The picker offers the newest version of each family unless the config asks
-	// for every version; an older one can still be named in full.
+	// pi is given the newest version of each family unless the config asks for
+	// every version. resolveModel() above still reads the full list, so the
+	// AskClaude tool can name an older model that the picker no longer offers.
 	const offeredModels = providerSettings.allVersions ? MODELS : latestVersions(MODELS);
 	const registeredModels = applyLongContext(offeredModels, longContextSettings);
 
